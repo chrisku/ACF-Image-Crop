@@ -81,5 +81,5 @@ function icfa_notice_acf_missing() {
     if ( ! current_user_can( 'activate_plugins' ) ) {
         return;
     }
-    echo '<div class="notice notice-error"><p>' . esc_html__( 'Image Crop Field for ACF requires Advanced Custom Fields (version 5.7 or later) to be active.', 'image-crop-field-for-acf' ) . '</p></div>';
+    echo '<div class="notice notice-error"><p>' . esc_html__( 'Image Crop Field for ACF requires Advanced Custom Fields or ACF Pro (version 6.0 or later) to be active.', 'image-crop-field-for-acf' ) . '</p></div>';
 }

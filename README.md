@@ -28,7 +28,7 @@ As of version 1.0 the field can be configured to either create the cropped image
 
 ### Compatibility ###
 
-* Advanced Custom Fields / ACF Pro 5.7 or later (tested with ACF Pro 6.8)
+* Advanced Custom Fields / ACF Pro 6.0 or later (tested against ACF Pro 6.8)
 * WordPress 6.2 or later
 * PHP 7.4 or later
 

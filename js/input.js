@@ -43,10 +43,6 @@
                 $field = this.$field;
 
 
-            // get repeater
-            var $repeater = acf.get_closest_field( this.$field, 'repeater' );
-
-
             // popup
             var frame = acf.media.popup({
 
@@ -54,78 +50,14 @@
                 mode:       'select',
                 type:       'image',
                 field:      acf.get_field_key($field),
-                multiple:   $repeater.exists(),
+                multiple:   false,
                 library:    this.o.library,
                 mime_types: this.o.mime_types,
 
                 select: function( attachment, i ) {
 
-                    // select / add another image field?
-                    if( i > 0 ) {
-
-                        // vars
-                        var key = acf.get_field_key( $field ),
-                            $tr = $field.closest('.acf-row');
-
-
-                        // reset field
-                        $field = false;
-
-
-                        // find next image field
-                        $tr.nextAll('.acf-row:visible').each(function(){
-
-                            // get next $field
-                            $field = acf.get_field( key, $(this) );
-
-
-                            // bail early if $next was not found
-                            if( !$field ) {
-
-                                return;
-
-                            }
-
-
-                            // bail early if next file uploader has value
-                            if( $field.find('.acf-image-uploader.has-value').exists() ) {
-
-                                $field = false;
-                                return;
-
-                            }
-
-
-                            // end loop if $next is found
-                            return false;
-
-                        });
-
-
-                        // add extra row if next is not found
-                        if( !$field ) {
-
-                            $tr = acf.fields.repeater.doFocus( $repeater ).add();
-
-
-                            // bail early if no $tr (maximum rows hit)
-                            if( !$tr ) {
-
-                                return false;
-
-                            }
-
-
-                            // get next $field
-                            $field = acf.get_field( key, $tr );
-
-                        }
-
-                    }
-
                     // focus
                     self.doFocus( $field );
-
 
                     // render
                     self.render( self.prepare(attachment) );
@@ -179,7 +111,7 @@
             //var id = this.$el.find('[data-name="id"]').val();
 
             var id = this.$el.find('.acf-image-value').data('cropped-image');
-            if(!$.isNumeric(id)){
+            if(!acf.isNumeric(id)){
                 id = this.$el.find('.acf-image-value').data('original-image');;
             }
 

@@ -1,9 +1,3 @@
-.field_type-image_crop .dimensions-wrap .acf-input-wrap{
-	float:left;
-}
-.field_type-image_crop .dimensions-wrap .dimension{	
-	width:150px;
-}
-.field_type-image_crop label.disabled{
+.acf-field-object-image-crop label.disabled{
 	color: #ccc;
 }

@@ -198,7 +198,6 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             'instructions'  => $instructions,
             'type'          => 'select',
             'name'          => 'target_size',
-            'class'         => 'target-size-select',
             'choices'       =>  $sizes
         ));
 
@@ -208,8 +207,12 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','image-crop-field-for-acf'),
             'type'          => 'number',
             'name'          => 'width',
-            'class'         => 'custom-target-width custom-target-dimension',
-            'append'        => 'px'
+            'append'        => 'px',
+            'conditions'    => array(
+                'field'     => 'target_size',
+                'operator'  => '==',
+                'value'     => 'custom'
+            )
         ));
 
         // height - conditional: target_size == 'custom'
@@ -218,17 +221,12 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','image-crop-field-for-acf'),
             'type'          => 'number',
             'name'          => 'height',
-            'class'         => 'custom-target-height custom-target-dimension',
-            'append'        => 'px'
-        ));
-
-        // preview_size
-        acf_render_field_setting( $field, array(
-            'label'         => __('Preview Size','acf'),
-            'instructions'  => __('Shown when entering data','acf'),
-            'type'          => 'select',
-            'name'          => 'preview_size',
-            'choices'       =>  acf_get_image_sizes()
+            'append'        => 'px',
+            'conditions'    => array(
+                'field'     => 'target_size',
+                'operator'  => '==',
+                'value'     => 'custom'
+            )
         ));
 
         // force_crop
@@ -292,6 +290,32 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             )
         ));
 
+    }
+
+    /*
+    *  render_field_validation_settings()
+    *
+    *  The parent image field adds min/max dimension, file size and file type settings to the
+    *  Validation tab. This field doesn't use them, so don't show them.
+    */
+    function render_field_validation_settings( $field ) {
+    }
+
+    /*
+    *  render_field_presentation_settings()
+    *
+    *  Replaces the parent image field's Presentation tab settings.
+    */
+    function render_field_presentation_settings( $field ) {
+
+        // preview_size
+        acf_render_field_setting( $field, array(
+            'label'         => __('Preview Size','acf'),
+            'instructions'  => __('Shown when entering data','acf'),
+            'type'          => 'select',
+            'name'          => 'preview_size',
+            'choices'       =>  acf_get_image_sizes()
+        ));
     }
 
 
