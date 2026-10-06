@@ -58,8 +58,16 @@ The two plugins cannot run at the same time. While the original is active, this 
 ## Changelog ##
 
 ### 2.0.0 ###
-* Forked from ACF Image Crop 1.4.12 and renamed to Image Crop Field for ACF.
-* Removed ACF 3 and ACF 4 support.
+* Forked from ACF Image Crop 1.4.12 and renamed to Image Crop Field for ACF. Field type, settings and stored values are unchanged.
+* Security: the crop AJAX actions now require a nonce and the `upload_files` capability, only accept image attachments, and validate the crop coordinates and output size.
+* Security: field values are validated when saved, rendered and returned, and the field's image URLs are escaped (stored XSS).
+* Fixed a fatal error when the image editor could not open an image.
+* Fixed a PHP 8 TypeError with retina mode and a blank custom dimension, and several PHP 8 warnings.
+* "Hide cropped images" no longer replaces other plugins' media library filters.
+* ACF 6: custom width/height settings are only shown for "Custom size", unused Validation tab settings are hidden, and Preview Size moved to the Presentation tab.
+* Selecting several images at once inside a Repeater is no longer offered (it relied on an ACF API that no longer exists).
+* Error messages are shown as text, and the field works in front-end forms (`acf_form()`).
+* Removed ACF 3 and ACF 4 support. Requires ACF 6.0+, WordPress 6.2+ and PHP 7.4+.
 
 ## Original changelog (ACF Image Crop by Anders Thorborg) ##
 
