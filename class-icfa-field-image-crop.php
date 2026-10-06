@@ -58,7 +58,9 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             'save_in_media_library' => 'yes',
             'target_size' => 'thumbnail',
             'library' => 'all',
-            'retina_mode' => 'no'
+            'retina_mode' => 'no',
+            'width' => '',
+            'height' => ''
         );
 
         $this->options = get_option( 'acf_image_crop_settings' );
@@ -324,8 +326,8 @@ class ICFA_Field_Image_Crop extends acf_field_image {
         $height = 0;
 
         if($field['target_size'] == 'custom'){
-            $width = $field['width'];
-            $height = $field['height'];
+            $width = intval($field['width']);
+            $height = intval($field['height']);
         }
         else{
             global $_wp_additional_image_sizes;
@@ -334,8 +336,8 @@ class ICFA_Field_Image_Crop extends acf_field_image {
                 $width = intval($_wp_additional_image_sizes[$s]['width']);
                 $height = intval($_wp_additional_image_sizes[$s]['height']);
             } else {
-                $width = get_option($s.'_size_w');
-                $height = get_option($s.'_size_h');
+                $width = intval(get_option($s.'_size_w'));
+                $height = intval(get_option($s.'_size_h'));
             }
         }
 
@@ -783,7 +785,7 @@ class ICFA_Field_Image_Crop extends acf_field_image {
 
     function get_image_src($id, $size = 'thumbnail'){
         $atts = wp_get_attachment_image_src( $id, $size);
-        return $atts[0];
+        return $atts ? $atts[0] : '';
     }
 
     function getAbsoluteImageUrl($relativeUrl){
@@ -803,11 +805,12 @@ class ICFA_Field_Image_Crop extends acf_field_image {
 
         // If hide option is enabled, do not select items with the acf_is_cropped meta-field
         if($hide){
-            $args['meta_query']= array(
-                array(
-                    'key' => 'acf_is_cropped',
-                    'compare' => 'NOT EXISTS'
-                )
+            if ( empty( $args['meta_query'] ) || ! is_array( $args['meta_query'] ) ) {
+                $args['meta_query'] = array();
+            }
+            $args['meta_query'][] = array(
+                'key' => 'acf_is_cropped',
+                'compare' => 'NOT EXISTS'
             );
         }
         return $args;
@@ -853,7 +856,7 @@ class ICFA_Field_Image_Crop extends acf_field_image {
     function displayHideFromMediaInput(){
         // Get plugin options
         $options = get_option( 'acf_image_crop_settings' );
-        $value = $options['hide_cropped'];
+        $value = ! empty( $options['hide_cropped'] );
 
         // echo the field
         ?>
@@ -865,7 +868,7 @@ class ICFA_Field_Image_Crop extends acf_field_image {
     function displayRetinaModeInput(){
         // Get plugin options
         $options = get_option( 'acf_image_crop_settings' );
-        $value = $options['retina_mode'];
+        $value = ! empty( $options['retina_mode'] );
 
         // echo the field
         ?>
@@ -881,9 +884,10 @@ class ICFA_Field_Image_Crop extends acf_field_image {
 // added
 // a function that sets theoptions value to false
     function validateImageCropSettingsSection($input) {
-        $input['hide_cropped'] =    ( isset( $input['hide_cropped'] ) && $input['hide_cropped'] == true ? true : false );
-        $input['retina_mode'] =     ( isset( $input['retina_mode'] ) && $input['retina_mode'] == true ? true : false );
-        return $input;
+        return array(
+            'hide_cropped' => ! empty( $input['hide_cropped'] ),
+            'retina_mode' => ! empty( $input['retina_mode'] )
+        );
     }
 // added END
 
@@ -1161,9 +1165,9 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             'caption' => $attachment->post_excerpt,
             'description' => $attachment->post_content,
             'mime_type' => $attachment->post_mime_type,
-            'url' => $src[0],
-            'width' => $src[1],
-            'height' => $src[2],
+            'url' => $src ? $src[0] : '',
+            'width' => $src ? $src[1] : 0,
+            'height' => $src ? $src[2] : 0,
             'sizes' => array(),
         );
 
@@ -1177,6 +1181,10 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             {
                 // find src
                 $src = wp_get_attachment_image_src( $attachment->ID, $image_size );
+
+                if ( ! $src ) {
+                    continue;
+                }
 
                 // add src
                 $imageArray[ 'sizes' ][ $image_size ] = $src[0];
