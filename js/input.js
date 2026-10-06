@@ -238,7 +238,7 @@ function initialize_field( $el ) {
                 $field.find('.acf-image-value').data('original-image', originalImage);
                 $field.find('.acf-image-value').data('cropped-image', originalImage);
                 $field.find('.acf-image-value').data('cropped', false);
-                $.post(ajaxurl, {action: 'acf_image_crop_get_image_size', image_id: originalImage}, function(data, textStatus, xhr) {
+                $.post(ajaxurl, {action: 'icfa_get_image_size', image_id: originalImage}, function(data, textStatus, xhr) {
                     if($field.find('img.crop-image').length == 0){
                         $field.find('.crop-action').append($('<img class="crop-image" src="#"/>'));
                     }
@@ -407,7 +407,7 @@ function initialize_field( $el ) {
                 targetHeight = $options.data('y2') - $options.data('y1');
             }
             var data = {
-                action: 'acf_image_crop_perform_crop',
+                action: 'icfa_perform_crop',
                 id: $field.find('.acf-image-value').data('original-image'),
                 x1: $options.data('x1'),
                 x2: $options.data('x2'),

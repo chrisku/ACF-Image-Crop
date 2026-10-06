@@ -1,6 +1,13 @@
 <?php
+/**
+ * Image crop field type.
+ *
+ * Originally written by Anders Thorborg as part of the ACF Image Crop add-on.
+ */
 
-class acf_field_image_crop extends acf_field_image {
+defined( 'ABSPATH' ) || exit;
+
+class ICFA_Field_Image_Crop extends acf_field_image {
 
 
     /*
@@ -29,7 +36,7 @@ class acf_field_image_crop extends acf_field_image {
         *  label (string) Multiple words, can include spaces, visible when selecting a field type
         */
 
-        $this->label = __('Image with user-crop', 'acf-image_crop');
+        $this->label = __('Image with user-crop', 'image-crop-field-for-acf');
 
 
         /*
@@ -57,8 +64,8 @@ class acf_field_image_crop extends acf_field_image {
         $this->options = get_option( 'acf_image_crop_settings' );
 
         // add ajax action to be able to retrieve full image size via javascript
-        add_action( 'wp_ajax_acf_image_crop_get_image_size', array( &$this, 'crop_get_image_size' ) );
-        add_action( 'wp_ajax_acf_image_crop_perform_crop', array( &$this, 'perform_crop' ) );
+        add_action( 'wp_ajax_icfa_get_image_size', array( &$this, 'crop_get_image_size' ) );
+        add_action( 'wp_ajax_icfa_perform_crop', array( &$this, 'perform_crop' ) );
 
 
         // add filter to media query function to hide cropped images from media library
@@ -73,12 +80,12 @@ class acf_field_image_crop extends acf_field_image {
         */
 
         $this->l10n = array(
-            'width_should_be'   => __( 'Width should be at least: ','acf-image_crop' ),
-            'height_should_be'  => __( 'Height should be at least: ','acf-image_crop' ),
-            'selected_width'    => __( 'Selected image width: ','acf-image_crop' ),
-            'selected_height'   => __( 'Selected image height: ','acf-image_crop' ),
-            'size_warning'      => __( 'Warning: The selected image is smaller than the required size!','acf-image_crop' ),
-            'crop_error'        => __( 'Sorry, an error occurred when trying to crop your image:')
+            'width_should_be'   => __( 'Width should be at least: ','image-crop-field-for-acf' ),
+            'height_should_be'  => __( 'Height should be at least: ','image-crop-field-for-acf' ),
+            'selected_width'    => __( 'Selected image width: ','image-crop-field-for-acf' ),
+            'selected_height'   => __( 'Selected image height: ','image-crop-field-for-acf' ),
+            'size_warning'      => __( 'Warning: The selected image is smaller than the required size!','image-crop-field-for-acf' ),
+            'crop_error'        => __( 'Sorry, an error occurred when trying to crop your image:', 'image-crop-field-for-acf' )
         );
     }
 
@@ -124,29 +131,29 @@ class acf_field_image_crop extends acf_field_image {
 
          // crop_type
         acf_render_field_setting( $field, array(
-            'label'         => __('Crop type','acf-image_crop'),
-            'instructions'  => __('Select the type of crop the user should perform','acf-image_crop'),
+            'label'         => __('Crop type','image-crop-field-for-acf'),
+            'instructions'  => __('Select the type of crop the user should perform','image-crop-field-for-acf'),
             'type'          => 'select',
             'name'          => 'crop_type',
             'layout'        => 'horizontal',
             'class'         => 'crop-type-select',
             'choices'       => array(
-                'hard'          => __('Hard crop', 'acf-image_crop'),
-                'min'           => __('Minimal dimensions', 'acf-image_crop')
+                'hard'          => __('Hard crop', 'image-crop-field-for-acf'),
+                'min'           => __('Minimal dimensions', 'image-crop-field-for-acf')
             )
         ));
 
         // target_size
         $sizes = acf_get_image_sizes();
 // added
-        $instructions = __('Select the target size for this field','acf-image_crop');
+        $instructions = __('Select the target size for this field','image-crop-field-for-acf');
         if ( $this->getOption('retina_mode') ) {
-            $instructions .= '<br><br><em><strong>'.__('Retina mode is enabled - user will be required to select an image twice this size','acf-image_crop').'</strong></em>';
+            $instructions .= '<br><br><em><strong>'.__('Retina mode is enabled - user will be required to select an image twice this size','image-crop-field-for-acf').'</strong></em>';
         }
 // added END
-        $sizes['custom'] = __('Custom size', 'acf-image_crop');
+        $sizes['custom'] = __('Custom size', 'image-crop-field-for-acf');
         acf_render_field_setting( $field, array(
-            'label'         => __('Target size','acf-image_crop'),
+            'label'         => __('Target size','image-crop-field-for-acf'),
             'instructions'  => $instructions,
             'type'          => 'select',
             'name'          => 'target_size',
@@ -156,8 +163,8 @@ class acf_field_image_crop extends acf_field_image {
 
         // width - conditional: target_size == 'custom'
         acf_render_field_setting( $field, array(
-            'label'         => __('Custom target width','acf-image_crop'),
-            'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','acf-image_crop'),
+            'label'         => __('Custom target width','image-crop-field-for-acf'),
+            'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','image-crop-field-for-acf'),
             'type'          => 'number',
             'name'          => 'width',
             'class'         => 'custom-target-width custom-target-dimension',
@@ -166,8 +173,8 @@ class acf_field_image_crop extends acf_field_image {
 
         // height - conditional: target_size == 'custom'
         acf_render_field_setting( $field, array(
-            'label'         => __('Custom target height','acf-image_crop'),
-            'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','acf-image_crop'),
+            'label'         => __('Custom target height','image-crop-field-for-acf'),
+            'instructions'  => __('Leave blank for no restriction (does not work with hard crop option)','image-crop-field-for-acf'),
             'type'          => 'number',
             'name'          => 'height',
             'class'         => 'custom-target-height custom-target-dimension',
@@ -185,8 +192,8 @@ class acf_field_image_crop extends acf_field_image {
 
         // force_crop
         acf_render_field_setting( $field, array(
-            'label'         => __('Force crop','acf-image_crop'),
-            'instructions'  => __('Force the user to crop the image as soon at it is selected','acf-image_crop'),
+            'label'         => __('Force crop','image-crop-field-for-acf'),
+            'instructions'  => __('Force the user to crop the image as soon at it is selected','image-crop-field-for-acf'),
             'type'          => 'radio',
             'layout'        => 'horizontal',
             'name'          => 'force_crop',
@@ -195,8 +202,8 @@ class acf_field_image_crop extends acf_field_image {
 
         // save_in_media_library
         acf_render_field_setting( $field, array(
-            'label'         => __('Save cropped image to media library','acf-image_crop'),
-            'instructions'  => __('If the cropped image is not saved in the media library, "Image URL" is the only available return value.','acf-image_crop'),
+            'label'         => __('Save cropped image to media library','image-crop-field-for-acf'),
+            'instructions'  => __('If the cropped image is not saved in the media library, "Image URL" is the only available return value.','image-crop-field-for-acf'),
             'type'          => 'radio',
             'layout'        => 'horizontal',
             'name'          => 'save_in_media_library',
@@ -208,8 +215,8 @@ class acf_field_image_crop extends acf_field_image {
         // retina mode
         if ( !$this->getOption('retina_mode') ) {
             acf_render_field_setting( $field, array(
-                'label'         => __('Retina/@2x mode ','acf-image_crop'),
-                'instructions'  => __('Require and crop double the size set for this image. Enable this if you are using plugins like WP Retina 2x.','acf-image_crop'),
+                'label'         => __('Retina/@2x mode ','image-crop-field-for-acf'),
+                'instructions'  => __('Require and crop double the size set for this image. Enable this if you are using plugins like WP Retina 2x.','image-crop-field-for-acf'),
                 'type'          => 'radio',
                 'layout'        => 'horizontal',
                 'name'          => 'retina_mode',
@@ -350,20 +357,20 @@ class acf_field_image_crop extends acf_field_image {
         <div class="crop-section">
             <div class="crop-stage">
                 <div class="crop-action">
-                    <h4><?php _e('Crop the image','acf-image_crop'); ?></h4>
+                    <h4><?php _e('Crop the image','image-crop-field-for-acf'); ?></h4>
                 <?php if ($imageData->original_image ): ?>
                     <img class="crop-image" src="<?php echo $imageData->original_image_url ?>" data-width="<?php echo $imageData->original_image_width ?>" data-height="<?php echo $imageData->original_image_height ?>" alt="">
                 <?php endif ?>
                 </div>
                 <div class="crop-preview">
-                    <h4><?php _e('Preview','acf-image_crop'); ?></h4>
+                    <h4><?php _e('Preview','image-crop-field-for-acf'); ?></h4>
                     <div class="preview"></div>
                     <div class="crop-controls">
-                        <a href="#" class="button button-large cancel-crop-button"><?php _e('Cancel','acf-image_crop'); ?></a> <a href="#" class="button button-large button-primary perform-crop-button"><?php _e('Crop!','acf-image_crop'); ?></a>
+                        <a href="#" class="button button-large cancel-crop-button"><?php _e('Cancel','image-crop-field-for-acf'); ?></a> <a href="#" class="button button-large button-primary perform-crop-button"><?php _e('Crop!','image-crop-field-for-acf'); ?></a>
                     </div>
                 </div>
             </div>
-            <a href="#" class="button button-large init-crop-button"><?php _e('Crop','acf-image_crop'); ?></a>
+            <a href="#" class="button button-large init-crop-button"><?php _e('Crop','image-crop-field-for-acf'); ?></a>
         </div>
     </div>
     <div class="view hide-if-value">
@@ -462,32 +469,18 @@ class acf_field_image_crop extends acf_field_image {
     function input_admin_enqueue_scripts() {
         $dir = plugin_dir_url( __FILE__ );
 
+        wp_register_script('icfa-input', "{$dir}js/input.js", array('acf-input', 'imgareaselect'), ICFA_VERSION);
 
-        // // register & include JS
-        // wp_register_script( 'acf-input-image_crop', "{$dir}js/input.js" );
-        // wp_enqueue_script('acf-input-image_crop');
-
-
-        // // register & include CSS
-        // wp_register_style( 'acf-input-image_crop', "{$dir}css/input.css" );
-        // wp_enqueue_style('acf-input-image_crop');
-
-        // register acf scripts
-        //wp_register_script('acf-input-image', "{$dir}../advanced-custom-fields-pro/js/input/image.js");
-        wp_register_script('acf-input-image_crop', "{$dir}js/input.js", array('acf-input', 'imgareaselect'));
-
-        wp_register_style('acf-input-image_crop', "{$dir}css/input.css", array('acf-input'));
+        wp_register_style('icfa-input', "{$dir}css/input.css", array('acf-input'), ICFA_VERSION);
 
         // scripts
         wp_enqueue_script(array(
-                'acf-input-image_crop'
+                'icfa-input'
         ));
-
-        //wp_localize_script( 'acf-input-image_crop', 'ajax', array('nonce' => wp_create_nonce('acf_nonce')) );
 
         // styles
         wp_enqueue_style(array(
-                'acf-input-image_crop',
+                'icfa-input',
                 'imgareaselect'
         ));
 
@@ -668,7 +661,7 @@ class acf_field_image_crop extends acf_field_image {
     function registerSettings(){
         add_settings_section(
             'acf_image_crop_settings',
-            __('ACF Image Crop Settings','acf-image_crop'),
+            __('ACF Image Crop Settings','image-crop-field-for-acf'),
             array($this, 'displayImageCropSettingsSection'),
             'media'
         );
@@ -686,7 +679,7 @@ class acf_field_image_crop extends acf_field_image {
 
         add_settings_field(
             'acf_image_crop_hide_cropped',      // id
-            __('Hide cropped images from media dialog', 'acf-image_crop'),              // setting title
+            __('Hide cropped images from media dialog', 'image-crop-field-for-acf'),              // setting title
             array($this, 'displayHideFromMediaInput'),    // display callback
             'media',                 // settings page
             'acf_image_crop_settings'                  // settings section
@@ -694,7 +687,7 @@ class acf_field_image_crop extends acf_field_image {
 
         add_settings_field(
             'acf_image_crop_retina_mode',      // id
-            __('Enable global retina mode (beta)', 'acf-image_crop'),              // setting title
+            __('Enable global retina mode (beta)', 'image-crop-field-for-acf'),              // setting title
             array($this, 'displayRetinaModeInput'),    // display callback
             'media',                 // settings page
             'acf_image_crop_settings'                  // settings section
@@ -841,11 +834,11 @@ class acf_field_image_crop extends acf_field_image {
 
         $dir = plugin_dir_url( __FILE__ );
 
-        wp_register_script('acf-input-image-crop-options', "{$dir}js/options.js", array('jquery'));
-        wp_enqueue_script( 'acf-input-image-crop-options');
+        wp_register_script('icfa-options', "{$dir}js/options.js", array('jquery'), ICFA_VERSION);
+        wp_enqueue_script( 'icfa-options');
 
-        wp_register_style('acf-input-image-crop-options', "{$dir}css/options.css");
-        wp_enqueue_style( 'acf-input-image-crop-options');
+        wp_register_style('icfa-options', "{$dir}css/options.css", array(), ICFA_VERSION);
+        wp_enqueue_style( 'icfa-options');
     }
 
 
@@ -1235,9 +1228,3 @@ class acf_field_image_crop extends acf_field_image {
 
 
 }
-
-
-// create field
-new acf_field_image_crop();
-
-?>
