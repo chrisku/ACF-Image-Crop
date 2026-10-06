@@ -316,16 +316,9 @@ class ICFA_Field_Image_Crop extends acf_field_image {
         acf_enqueue_uploader();
 
         // get data from value
-        //$data = json_decode($field['value']);
         $imageData = $this->get_image_data($field);
 
         $url = '';
-        $orignialImage = null;
-
-        if($imageData->original_image){
-            $originalImage = wp_get_attachment_image_src($imageData->original_image, 'full');
-            $url = $imageData->preview_image_url;
-        }
 
         $width = 0;
         $height = 0;
@@ -369,7 +362,7 @@ class ICFA_Field_Image_Crop extends acf_field_image {
         $input_atts = array(
             'type'                  => 'hidden',
             'name'                  => $field['name'],
-            'value'                 => htmlspecialchars($field['value']),
+            'value'                 => $this->sanitize_value( $field['value'] ),
             'data-name'             => 'id',
             'data-original-image'   => $imageData->original_image,
             'data-cropped-image'    => json_encode($imageData->cropped_image),
@@ -392,13 +385,13 @@ class ICFA_Field_Image_Crop extends acf_field_image {
             <li><a class="acf-icon -pencil dark" data-name="edit" href="#"><i class="acf-sprite-edit"></i></a></li>
             <li><a class="acf-icon -cancel dark" data-name="remove" href="#"><i class="acf-sprite-delete"></i></a></li>
         </ul>
-        <img data-name="image" src="<?php echo $url; ?>" alt=""/>
+        <img data-name="image" src="<?php echo esc_url( $url ); ?>" alt=""/>
         <div class="crop-section">
             <div class="crop-stage">
                 <div class="crop-action">
                     <h4><?php _e('Crop the image','image-crop-field-for-acf'); ?></h4>
                 <?php if ($imageData->original_image ): ?>
-                    <img class="crop-image" src="<?php echo $imageData->original_image_url ?>" data-width="<?php echo $imageData->original_image_width ?>" data-height="<?php echo $imageData->original_image_height ?>" alt="">
+                    <img class="crop-image" src="<?php echo esc_url( $imageData->original_image_url ); ?>" data-width="<?php echo esc_attr( $imageData->original_image_width ); ?>" data-height="<?php echo esc_attr( $imageData->original_image_height ); ?>" alt="">
                 <?php endif ?>
                 </div>
                 <div class="crop-preview">
@@ -433,44 +426,28 @@ class ICFA_Field_Image_Crop extends acf_field_image {
         $imageData->preview_image_url = '';
         $imageData->image_url = '';
 
-        if($field['value'] == ''){
-            // Field has not yet been saved or is an empty image field
-            return $imageData;
-        }
+        $data = $this->parse_value( $field['value'] );
 
-        $data = json_decode($field['value']);
-
-        if(! is_object($data)){
-            // Field was saved as a regular image field
-            $imageAtts = wp_get_attachment_image_src($field['value'], 'full');
-            $imageData->original_image = $field['value'];
-            $imageData->original_image_width = $imageAtts[1];
-            $imageData->original_image_height = $imageAtts[2];
-            $imageData->preview_image_url = $this->get_image_src($field['value'], $field['preview_size']);
-            $imageData->image_url = $this->get_image_src($field['value'], 'full');
-            $imageData->original_image_url = $imageData->image_url;
-            return $imageData;
-        }
-
-        if( !is_numeric($data->original_image) )
-        {
-            // The field has been saved, but has no image
+        if( ! $data->original_image ){
+            // Field has not yet been saved or has no image
             return $imageData;
         }
 
         // By now, we have at least a saved original image
-        $imageAtts = wp_get_attachment_image_src($data->original_image, 'full');
         $imageData->original_image = $data->original_image;
-        $imageData->original_image_width = $imageAtts[1];
-        $imageData->original_image_height = $imageAtts[2];
-        $imageData->original_image_url = $this->get_image_src($data->original_image, 'full');
+        $imageAtts = wp_get_attachment_image_src($data->original_image, 'full');
+        if ( $imageAtts ) {
+            $imageData->original_image_url = $imageAtts[0];
+            $imageData->original_image_width = $imageAtts[1];
+            $imageData->original_image_height = $imageAtts[2];
+        }
 
         // Set defaults to original image
-        $imageData->image_url = $this->get_image_src($data->original_image, 'full');
+        $imageData->image_url = $imageData->original_image_url;
         $imageData->preview_image_url = $this->get_image_src($data->original_image, $field['preview_size']);
 
         // Check if there is a cropped version and set appropriate attributes
-        if(is_numeric($data->cropped_image)){
+        if(is_int($data->cropped_image)){
             // Cropped image was saved to media library ans has an ID
             $imageData->cropped_image = $data->cropped_image;
             $imageData->image_url = $this->get_image_src($data->cropped_image, 'full');
@@ -479,13 +456,116 @@ class ICFA_Field_Image_Crop extends acf_field_image {
         elseif(is_object($data->cropped_image)){
             // Cropped image was not saved to media library and is only stored by its URL
             $imageData->cropped_image = $data->cropped_image;
-
-            // Generate appropriate URLs
-            $mediaDir = wp_upload_dir();
-            $imageData->image_url = $mediaDir['baseurl'] . '/' .  $data->cropped_image->image;
-            $imageData->preview_image_url = $mediaDir['baseurl'] . '/' . $data->cropped_image->preview;
+            $imageData->image_url = $this->getAbsoluteImageUrl($data->cropped_image->image);
+            $imageData->preview_image_url = $this->getAbsoluteImageUrl($data->cropped_image->preview);
         }
         return $imageData;
+    }
+
+    /*
+    *  parse_value()
+    *
+    *  Parses a stored or submitted field value into a validated object with
+    *  - original_image: attachment ID, or '' when there is no image
+    *  - cropped_image:  attachment ID, an object with "image" and "preview" paths relative
+    *                    to the uploads folder, or '' when the image hasn't been cropped
+    *  Anything that doesn't match this shape is dropped, so a tampered value can't inject
+    *  markup or point outside the uploads folder.
+    *
+    *  @param   $value (mixed) JSON string, or an attachment ID saved by a regular image field
+    *  @return  (object)
+    */
+    function parse_value( $value ) {
+        $data = new stdClass();
+        $data->original_image = '';
+        $data->cropped_image = '';
+
+        if ( is_numeric( $value ) ) {
+            // Field was saved as a regular image field
+            $data->original_image = absint( $value );
+            return $data;
+        }
+
+        if ( ! is_string( $value ) || $value === '' ) {
+            return $data;
+        }
+
+        $decoded = json_decode( $value );
+        if ( ! is_object( $decoded ) ) {
+            // Values submitted through a form are slashed
+            $decoded = json_decode( wp_unslash( $value ) );
+        }
+
+        if ( ! is_object( $decoded ) || ! isset( $decoded->original_image ) || ! is_numeric( $decoded->original_image ) ) {
+            // The field has been saved, but has no image
+            return $data;
+        }
+
+        $data->original_image = absint( $decoded->original_image );
+        if ( ! $data->original_image ) {
+            return $data;
+        }
+
+        $cropped = isset( $decoded->cropped_image ) ? $decoded->cropped_image : '';
+        if ( is_numeric( $cropped ) ) {
+            $data->cropped_image = absint( $cropped );
+        }
+        elseif ( is_object( $cropped ) && isset( $cropped->image ) ) {
+            $image = $this->sanitize_relative_path( $cropped->image );
+            if ( $image ) {
+                $preview = isset( $cropped->preview ) ? $this->sanitize_relative_path( $cropped->preview ) : '';
+                $data->cropped_image = (object) array(
+                    'image' => $image,
+                    'preview' => $preview ? $preview : $image
+                );
+            }
+        }
+
+        return $data;
+    }
+
+    /*
+    *  Encodes a parsed value for storage. Returns '' when there is no image.
+    */
+    function value_to_string( $data ) {
+        if ( ! $data->original_image ) {
+            return '';
+        }
+        return wp_json_encode( $data, JSON_UNESCAPED_SLASHES );
+    }
+
+    /*
+    *  Returns the validated value in its storage format. Values saved by a regular image field
+    *  (a plain attachment ID) keep that format until the image is changed or cropped.
+    */
+    function sanitize_value( $value ) {
+        if ( is_numeric( $value ) ) {
+            return absint( $value );
+        }
+        return $this->value_to_string( $this->parse_value( $value ) );
+    }
+
+    /*
+    *  Validates a cropped image path relative to the uploads folder.
+    *  Returns '' for traversal, absolute or stream paths, unexpected characters and non-image files.
+    */
+    function sanitize_relative_path( $path ) {
+        if ( ! is_string( $path ) ) {
+            return '';
+        }
+
+        $path = ltrim( str_replace( '\\', '/', $path ), '/' );
+
+        if ( $path === '' || validate_file( $path ) !== 0 || strpos( $path, ':' ) !== false || preg_match( '/[\x00-\x1f"\'<>`]/', $path ) ) {
+            return '';
+        }
+
+        $filetype = wp_check_filetype( $path );
+        if ( ! $filetype['type'] || strpos( $filetype['type'], 'image/' ) !== 0 ) {
+            return '';
+        }
+
+        return $path;
     }
 
 
@@ -971,10 +1051,13 @@ class ICFA_Field_Image_Crop extends acf_field_image {
 
     /*
     *  update_value()
-    *  Implement this function to avoid parent function taking over and trying to validate json data
+    *
+    *  Overrides the parent image field, which expects an attachment ID. Only stores values that
+    *  pass parse_value(), re-encoded, so tampered JSON never reaches the database.
+    *  ACF passes slashed values on to update_metadata(), which unslashes them, so slash the result.
     */
     function update_value( $value, $post_id, $field ) {
-        return $value;
+        return wp_slash( $this->sanitize_value( $value ) );
     }
 
 
@@ -1000,130 +1083,58 @@ class ICFA_Field_Image_Crop extends acf_field_image {
 
     function format_value( $value, $post_id, $field ) {
 
-       // validate
-        if( !$value ){
+        $data = $this->parse_value( $value );
+
+        // validate
+        if( ! $data->original_image ){
             return false;
         }
 
-        $data = json_decode($value);
-
-        if(is_object($data)){
-            $value = $data->cropped_image;
-        }
-        else{
-            // We are migrating from a standard image field
-            $data = new stdClass();
-            $data->cropped_image = $value;
-            $data->original_image = $value;
-        }
+        // An image that hasn't been cropped (or was migrated from a standard image field) uses the original
+        $cropped = $data->cropped_image ? $data->cropped_image : $data->original_image;
 
         // format
         if( $field['save_format'] == 'url' )
         {
-            if(is_numeric($data->cropped_image)){
-                $value = wp_get_attachment_url( $data->cropped_image );
+            if(is_object($cropped)){
+                return $this->getAbsoluteImageUrl($cropped->image);
             }
-            elseif(is_array($data->cropped_image)){
-
-                $value = $this->getAbsoluteImageUrl($data->cropped_image['image']);
-            }
-            elseif(is_object($data->cropped_image)){
-                $value = $this->getAbsoluteImageUrl($data->cropped_image->image);
-            }
-
+            return wp_get_attachment_url( $cropped );
         }
         elseif( $field['save_format'] == 'object' )
         {
-            if(is_numeric($data->cropped_image )){
-                $value = $this->getImageArray($data->cropped_image);
-                $value['original_image'] = $this->getImageArray($data->original_image);
-                // $attachment = get_post( $data->cropped_image );
-                // // validate
-                // if( !$attachment )
-                // {
-                //     return false;
-                // }
-
-
-                // // create array to hold value data
-                // $src = wp_get_attachment_image_src( $attachment->ID, 'full' );
-
-                // $value = array(
-                //     'id' => $attachment->ID,
-                //     'alt' => get_post_meta($attachment->ID, '_wp_attachment_image_alt', true),
-                //     'title' => $attachment->post_title,
-                //     'caption' => $attachment->post_excerpt,
-                //     'description' => $attachment->post_content,
-                //     'mime_type' => $attachment->post_mime_type,
-                //     'url' => $src[0],
-                //     'width' => $src[1],
-                //     'height' => $src[2],
-                //     'sizes' => array(),
-                // );
-
-
-                // // find all image sizes
-                // $image_sizes = get_intermediate_image_sizes();
-
-                // if( $image_sizes )
-                // {
-                //     foreach( $image_sizes as $image_size )
-                //     {
-                //         // find src
-                //         $src = wp_get_attachment_image_src( $attachment->ID, $image_size );
-
-                //         // add src
-                //         $value[ 'sizes' ][ $image_size ] = $src[0];
-                //         $value[ 'sizes' ][ $image_size . '-width' ] = $src[1];
-                //         $value[ 'sizes' ][ $image_size . '-height' ] = $src[2];
-                //     }
-                //     // foreach( $image_sizes as $image_size )
-                // }
-            }
-            elseif(is_array( $data->cropped_image) || is_object($data->cropped_image)){
+            if(is_object($cropped)){
                 // Cropped image is not saved to media directory. Get data from original image instead
                 $value = $this->getImageArray($data->original_image);
-
-                // Get the relative url from data
-                $relativeUrl  = '';
-                if(is_array( $data->cropped_image)){
-                    $relativeUrl = $data->cropped_image['image'];
-                }
-                else{
-                    $relativeUrl = $data->cropped_image->image;
+                if ( ! $value ) {
+                    return false;
                 }
 
                 // Replace URL with cropped version
-                $value['url'] = $this->getAbsoluteImageUrl($relativeUrl);
+                $value['url'] = $this->getAbsoluteImageUrl($cropped->image);
 
                 // Calculate and replace sizes
-                $imagePath = $this->getImagePath($relativeUrl);
-                $dimensions = getimagesize($imagePath);
-                $value['width'] = $dimensions[0];
-                $value['height'] = $dimensions[1];
-
-                // Add original image info
-                $value['original_image'] = $this->getImageArray($data->original_image);
+                $imagePath = $this->getImagePath($cropped->image);
+                $dimensions = is_file($imagePath) ? getimagesize($imagePath) : false;
+                if ( $dimensions ) {
+                    $value['width'] = $dimensions[0];
+                    $value['height'] = $dimensions[1];
+                }
             }
-            // elseif(is_object($data->cropped_image)){
-            //     $value = $this->getImageArray($data->original_image);
-            //     $value['url'] = $this->getAbsoluteImageUrl($data->cropped_image->image);
-
-            //     // Calculate sizes
-            //     $imagePath = $this->getImagePath($data->cropped_image->image);
-            //     $dimensions = getimagesize($imagePath);
-            //     $value['width'] = $dimensions[0];
-            //     $value['height'] = $dimensions[1];
-
-            //     // Add original image info
-            //     $value['original_image'] = $this->getImageArray($data->original_image);
-            // }
             else{
-                //echo 'ELSE';
+                $value = $this->getImageArray($cropped);
+                if ( ! $value ) {
+                    return false;
+                }
             }
 
+            // Add original image info
+            $value['original_image'] = $this->getImageArray($data->original_image);
+            return $value;
         }
-        return $value;
+
+        // Image ID (or the relative paths when the crop isn't in the media library)
+        return $cropped;
 
     }
 
