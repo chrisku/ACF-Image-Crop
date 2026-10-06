@@ -43,10 +43,6 @@
                 $field = this.$field;
 
 
-            // get repeater
-            var $repeater = acf.get_closest_field( this.$field, 'repeater' );
-
-
             // popup
             var frame = acf.media.popup({
 
@@ -54,78 +50,14 @@
                 mode:       'select',
                 type:       'image',
                 field:      acf.get_field_key($field),
-                multiple:   $repeater.exists(),
+                multiple:   false,
                 library:    this.o.library,
                 mime_types: this.o.mime_types,
 
                 select: function( attachment, i ) {
 
-                    // select / add another image field?
-                    if( i > 0 ) {
-
-                        // vars
-                        var key = acf.get_field_key( $field ),
-                            $tr = $field.closest('.acf-row');
-
-
-                        // reset field
-                        $field = false;
-
-
-                        // find next image field
-                        $tr.nextAll('.acf-row:visible').each(function(){
-
-                            // get next $field
-                            $field = acf.get_field( key, $(this) );
-
-
-                            // bail early if $next was not found
-                            if( !$field ) {
-
-                                return;
-
-                            }
-
-
-                            // bail early if next file uploader has value
-                            if( $field.find('.acf-image-uploader.has-value').exists() ) {
-
-                                $field = false;
-                                return;
-
-                            }
-
-
-                            // end loop if $next is found
-                            return false;
-
-                        });
-
-
-                        // add extra row if next is not found
-                        if( !$field ) {
-
-                            $tr = acf.fields.repeater.doFocus( $repeater ).add();
-
-
-                            // bail early if no $tr (maximum rows hit)
-                            if( !$tr ) {
-
-                                return false;
-
-                            }
-
-
-                            // get next $field
-                            $field = acf.get_field( key, $tr );
-
-                        }
-
-                    }
-
                     // focus
                     self.doFocus( $field );
-
 
                     // render
                     self.render( self.prepare(attachment) );
@@ -179,7 +111,7 @@
             //var id = this.$el.find('[data-name="id"]').val();
 
             var id = this.$el.find('.acf-image-value').data('cropped-image');
-            if(!$.isNumeric(id)){
+            if(!acf.isNumeric(id)){
                 id = this.$el.find('.acf-image-value').data('original-image');;
             }
 
@@ -238,7 +170,10 @@ function initialize_field( $el ) {
                 $field.find('.acf-image-value').data('original-image', originalImage);
                 $field.find('.acf-image-value').data('cropped-image', originalImage);
                 $field.find('.acf-image-value').data('cropped', false);
-                $.post(ajaxurl, {action: 'acf_image_crop_get_image_size', image_id: originalImage}, function(data, textStatus, xhr) {
+                $.post(acf.get('ajaxurl'), {action: 'icfa_get_image_size', nonce: icfaImageCrop.nonce, image_id: originalImage}, function(data, textStatus, xhr) {
+                    if(!data || !data.url){
+                        return;
+                    }
                     if($field.find('img.crop-image').length == 0){
                         $field.find('.crop-action').append($('<img class="crop-image" src="#"/>'));
                     }
@@ -407,7 +342,8 @@ function initialize_field( $el ) {
                 targetHeight = $options.data('y2') - $options.data('y1');
             }
             var data = {
-                action: 'acf_image_crop_perform_crop',
+                action: 'icfa_perform_crop',
+                nonce: icfaImageCrop.nonce,
                 id: $field.find('.acf-image-value').data('original-image'),
                 x1: $options.data('x1'),
                 x2: $options.data('x2'),
@@ -418,20 +354,32 @@ function initialize_field( $el ) {
                 preview_size: $options.data('preview_size'),
                 save_to_media_library: saveToMediaLibrary
             }
-            $.post(ajaxurl, data, function(data, textStatus, xhr) {
-                if(data.success){
+            $.post(acf.get('ajaxurl'), data, null, 'json').done(function(data){
+                if(data && data.success){
                     $field.find('[data-name=image]').attr('src', data.preview_url);
                     $field.find('.acf-image-value').data('cropped-image', data.value);
                     $field.find('.acf-image-value').data('cropped', true);
                     updateFieldValue($field);
                 }
                 else{
-                    $field.append('<div class="error"><p>' + acf._e('image_crop', 'crop_error') + '</p>' + data.error_message);
+                    showCropError($field, data && data.error_message);
                 }
+            }).fail(function(xhr){
+                showCropError($field, xhr.responseJSON && xhr.responseJSON.error_message);
+            }).always(function(){
                 $field.find('.crop-stage').removeClass('loading');
                 cancelCrop($field);
-            }, 'json');
+            });
         }
+    }
+
+    function showCropError($field, message){
+        var $error = $('<div class="error"></div>');
+        $error.append($('<p></p>').text(acf._e('image_crop', 'crop_error')));
+        if(message){
+            $error.append($('<p></p>').text(message));
+        }
+        $field.append($error);
     }
 
     function cancelCrop($field){
@@ -456,70 +404,28 @@ function initialize_field( $el ) {
         $input.val(generateCropJSON($input.data('original-image'), $input.data('cropped-image')));
     }
 
-    function getFullImageUrl(id, callback){
-        $.post(ajaxurl, {images: []}, function(data, textStatus, xhr) {
-        }, 'json');
-    }
 
+    /*
+    *  ready append
+    *
+    *  These are 2 events which are fired during the page load
+    *  ready = on page load similar to $(document).ready()
+    *  append = on new DOM elements appended via repeater field
+    *
+    *  @param   $el (jQuery selection) the jQuery element which contains the ACF fields
+    *  @return  n/a
+    */
 
-    if( typeof acf.add_action !== 'undefined' ) {
+    acf.add_action('ready append', function( $el ){
 
-        /*
-        *  ready append (ACF5)
-        *
-        *  These are 2 events which are fired during the page load
-        *  ready = on page load similar to $(document).ready()
-        *  append = on new DOM elements appended via repeater field
-        *
-        *  @type    event
-        *  @date    20/07/13
-        *
-        *  @param   $el (jQuery selection) the jQuery element which contains the ACF fields
-        *  @return  n/a
-        */
+        // search $el for fields of type 'image_crop'
+        acf.get_fields({ type : 'image_crop'}, $el).each(function(){
 
-        acf.add_action('ready append', function( $el ){
-
-            // search $el for fields of type 'image_crop'
-            acf.get_fields({ type : 'image_crop'}, $el).each(function(){
-
-                initialize_field( $(this) );
-
-            });
+            initialize_field( $(this) );
 
         });
 
-
-    } else {
-
-
-        /*
-        *  acf/setup_fields (ACF4)
-        *
-        *  This event is triggered when ACF adds any new elements to the DOM.
-        *
-        *  @type    function
-        *  @since   1.0.0
-        *  @date    01/01/12
-        *
-        *  @param   event       e: an event object. This can be ignored
-        *  @param   Element     postbox: An element which contains the new HTML
-        *
-        *  @return  n/a
-        */
-
-        $(document).live('acf/setup_fields', function(e, postbox){
-
-            $(postbox).find('.field[data-field_type="image_crop"]').each(function(){
-
-                initialize_field( $(this) );
-
-            });
-
-        });
-
-
-    }
+    });
 
 
 })(jQuery);
