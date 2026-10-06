@@ -238,7 +238,10 @@ function initialize_field( $el ) {
                 $field.find('.acf-image-value').data('original-image', originalImage);
                 $field.find('.acf-image-value').data('cropped-image', originalImage);
                 $field.find('.acf-image-value').data('cropped', false);
-                $.post(ajaxurl, {action: 'icfa_get_image_size', image_id: originalImage}, function(data, textStatus, xhr) {
+                $.post(acf.get('ajaxurl'), {action: 'icfa_get_image_size', nonce: icfaImageCrop.nonce, image_id: originalImage}, function(data, textStatus, xhr) {
+                    if(!data || !data.url){
+                        return;
+                    }
                     if($field.find('img.crop-image').length == 0){
                         $field.find('.crop-action').append($('<img class="crop-image" src="#"/>'));
                     }
@@ -408,6 +411,7 @@ function initialize_field( $el ) {
             }
             var data = {
                 action: 'icfa_perform_crop',
+                nonce: icfaImageCrop.nonce,
                 id: $field.find('.acf-image-value').data('original-image'),
                 x1: $options.data('x1'),
                 x2: $options.data('x2'),
@@ -418,20 +422,32 @@ function initialize_field( $el ) {
                 preview_size: $options.data('preview_size'),
                 save_to_media_library: saveToMediaLibrary
             }
-            $.post(ajaxurl, data, function(data, textStatus, xhr) {
-                if(data.success){
+            $.post(acf.get('ajaxurl'), data, null, 'json').done(function(data){
+                if(data && data.success){
                     $field.find('[data-name=image]').attr('src', data.preview_url);
                     $field.find('.acf-image-value').data('cropped-image', data.value);
                     $field.find('.acf-image-value').data('cropped', true);
                     updateFieldValue($field);
                 }
                 else{
-                    $field.append('<div class="error"><p>' + acf._e('image_crop', 'crop_error') + '</p>' + data.error_message);
+                    showCropError($field, data && data.error_message);
                 }
+            }).fail(function(xhr){
+                showCropError($field, xhr.responseJSON && xhr.responseJSON.error_message);
+            }).always(function(){
                 $field.find('.crop-stage').removeClass('loading');
                 cancelCrop($field);
-            }, 'json');
+            });
         }
+    }
+
+    function showCropError($field, message){
+        var $error = $('<div class="error"></div>');
+        $error.append($('<p></p>').text(acf._e('image_crop', 'crop_error')));
+        if(message){
+            $error.append($('<p></p>').text(message));
+        }
+        $field.append($error);
     }
 
     function cancelCrop($field){
@@ -454,11 +470,6 @@ function initialize_field( $el ) {
     function updateFieldValue($field){
         var $input = $field.find('.acf-image-value');
         $input.val(generateCropJSON($input.data('original-image'), $input.data('cropped-image')));
-    }
-
-    function getFullImageUrl(id, callback){
-        $.post(ajaxurl, {images: []}, function(data, textStatus, xhr) {
-        }, 'json');
     }
 
 
